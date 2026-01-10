@@ -1,7 +1,7 @@
 package databases
 
 import (
-	"context"
+	// "context"
 	"fmt"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -22,22 +22,25 @@ func access_creds() string {
 	return fmt.Sprintf("mongodb://%s:%s", db_host, db_port)
 }
 
-var mongo_uri = access_creds()
-var MongoClient *mongo.Client
+type MClient struct {
+	mc *mongo.Client
+}
 
-func Client() {
-	client, err := mongo.Connect(options.Client().ApplyURI(mongo_uri))
+func Client() MClient {
+	uri := access_creds()
+	client, err := mongo.Connect(options.Client().ApplyURI(uri))
 	if err != nil {
 		panic(err)
 	}
 
-	MongoClient = client
+	// MongoClient = client
 
-	defer func() {
-		if err := client.Disconnect(context.TODO()); err != nil {
-			panic(err)
-		}
-	}()
+	// defer func() {
+	// 	if err := client.Disconnect(context.TODO()); err != nil {
+	// 		panic(err)
+	// 	}
+	// }()
 
 	fmt.Println("Successfully connected to bible_app!")
+	return MClient{mc: client}
 }
