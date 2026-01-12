@@ -31,8 +31,10 @@ collection name to be inserted inside of "bible_db".
 Important: Do NOT insert multiple babij-collections, because collection can have translations,
 with the same translation_abbr, thus making the collection corrupted.
 */
-func IterateThroughBibleCollection(collection_path string, client *MClient) {
+func IterateThroughBibleCollection(collection_path string, client *MClient, ctx context.Context) {
 	db := client.BibleDB()
+	db_ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	err := filepath.Walk(collection_path, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -40,7 +42,7 @@ func IterateThroughBibleCollection(collection_path string, client *MClient) {
 		}
 
 		if info.IsDir() {
-			exportBabijTranslation(path, db)
+			exportBabijTranslation(path, db, db_ctx)
 		}
 
 		return nil
@@ -51,7 +53,9 @@ func IterateThroughBibleCollection(collection_path string, client *MClient) {
 	}
 }
 
-func exportBabijTranslation(babij_translation_source string, bdb *Bible_db) {
+func exportBabijTranslation(babij_translation_source string, bdb *Bible_db, ctx context.Context) {
+	export_cxt, cancel := context.WithCancel(ctx)
+	defer cancel()
 	err := filepath.Walk(babij_translation_source, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -68,6 +72,7 @@ func exportBabijTranslation(babij_translation_source string, bdb *Bible_db) {
 			if err != nil {
 				log.Fatalf("Could not open '%s'", path)
 			}
+			defer file.Close()
 
 			read, _ := io.ReadAll(file)
 
@@ -86,7 +91,7 @@ func exportBabijTranslation(babij_translation_source string, bdb *Bible_db) {
 
 			coll := bdb.createCollection(translation_abbr)
 
-			coll.insertBook(book_json, translation_abbr, base_name)
+			coll.insertBook(book_json, translation_abbr, base_name, export_cxt)
 		}
 
 		return nil
@@ -113,12 +118,16 @@ func (bdb *Bible_db) createCollection(trnl_abbr string) *translation_collection 
 	return &translation_collection{bdb.Database.Collection(trnl_abbr)}
 }
 
-func (coll *translation_collection) insertBook(data any, trans_abbr string, base_name string) {
+func (coll *translation_collection) insertBook(data any, trans_abbr string, base_name string, ctx context.Context) {
 	str := fmt.Sprintf("collection{'%s'} -> book{%s}\n", trans_abbr, base_name)
-	_, err := coll.InsertOne(context.TODO(), data)
+	coll_ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	_, err := coll.InsertOne(coll_ctx, data)
 	if err != nil {
 		log.Fatalf("DID NOT insert %s, because of %s\n", str, err)
 
 	}
+
 	fmt.Printf("Inserted into %s", str)
 }

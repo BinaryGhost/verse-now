@@ -1,7 +1,7 @@
 package databases
 
 import (
-	// "context"
+	"context"
 	"fmt"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -33,14 +33,10 @@ func Client() MClient {
 		panic(err)
 	}
 
-	// MongoClient = client
-
-	// defer func() {
-	// 	if err := client.Disconnect(context.TODO()); err != nil {
-	// 		panic(err)
-	// 	}
-	// }()
-
 	fmt.Println("Successfully connected to bible_app!")
 	return MClient{mc: client}
+}
+
+func (client *MClient) Close(ctx context.Context) error {
+	return client.mc.Disconnect(ctx)
 }
