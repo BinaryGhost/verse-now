@@ -10,6 +10,14 @@ import (
 	"os"
 )
 
+type Bible_db struct {
+	*mongo.Database
+}
+
+func (client *MClient) BibleDB() *Bible_db {
+	return &Bible_db{client.mc.Database("bible_db")}
+}
+
 func access_creds() string {
 	err := godotenv.Load("configs/.env")
 	if err != nil {

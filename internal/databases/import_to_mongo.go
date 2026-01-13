@@ -102,14 +102,6 @@ func exportBabijTranslation(babij_translation_source string, bdb *Bible_db, ctx 
 	}
 }
 
-type Bible_db struct {
-	*mongo.Database
-}
-
-func (client *MClient) BibleDB() *Bible_db {
-	return &Bible_db{client.mc.Database("bible_db")}
-}
-
 type translation_collection struct {
 	*mongo.Collection
 }
