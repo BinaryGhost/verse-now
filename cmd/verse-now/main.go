@@ -23,7 +23,7 @@ func main() {
 		// c.JSON(http.StatusOK, gin.H{
 		// 	"message": thing,
 		// })
-		fmt.Println(bible_db.ComposeChapter("Obadiah", "1", ctx, "NLDNBG"))
+		fmt.Println(bible_db.ComposeChapter("Genesis", "3", ctx, "MSYPBT"))
 	})
 
 	// r.GET("/translations/:abbr/books/:book_name/chapters/:chapter_num")

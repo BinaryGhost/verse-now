@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	ent "github.com/BinaryGhost/verse-now/internal/entities"
+	"sync"
 
 	// "github.com/tidwall/gjson"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -17,8 +19,13 @@ func (db *Bible_db) ComposeChapter(book string, chapter string, ctx context.Cont
 	// footnotes
 	// tables
 	// special_elements
+
 	// verses
 	// crossrefs
+
+	gather_about := []Gather{
+		verse{}, footnote{}, crossrefs{},
+	}
 
 	base_collection := db.Collection(abbr)
 	if base_collection == nil {
@@ -26,43 +33,176 @@ func (db *Bible_db) ComposeChapter(book string, chapter string, ctx context.Cont
 		return errors.New(error_str)
 	}
 
-	inside_book := bson.E{Key: "general.about_book.bookname_in_english", Value: book}
+	_ = Collect(ctx, base_collection, gather_about, book, chapter)
 
-	verses, _ := Gather(
-		ctx,
-		base_collection,
-		Filter{
-			filtering_opts: bson.D{
-				inside_book,
-				{Key: "verses", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
-			},
-			bookname:   book,
-			query_kind: "verses",
-		},
-	)
-	fmt.Println(verses)
+	// _ = GatherVerses(ctx, base_collection, book, chapter)
 
 	return nil
 }
 
-type Filter struct {
-	filtering_opts bson.D
-	bookname       string
-	query_kind     string
-}
+func Collect(ctx context.Context, coll *mongo.Collection, gatherers []Gather, book string, chapter string) error {
+	var wg sync.WaitGroup
+	err_chan := make(chan error, 8)
 
-func Gather(ctx context.Context, coll *mongo.Collection, filter Filter) (bson.M, error) {
-	cursor := coll.FindOne(ctx, filter.filtering_opts)
-
-	if cursor == nil {
-		error_str := fmt.Sprintf("Bookname not found for '%s' of kind '%s'", filter.bookname, filter.query_kind)
-		return nil, errors.New(error_str)
+	for _, gatherer := range gatherers {
+		wg.Add(1)
+		go func(g Gather) {
+			defer wg.Done()
+			_, err := g.Gather(ctx, coll, book, chapter)
+			if err != nil {
+				err_chan <- err
+				return
+			}
+		}(gatherer)
 	}
 
-	var result bson.M
-	if err := cursor.Decode(&result); err != nil {
+	wg.Wait()
+	close(err_chan)
+
+	for err := range err_chan {
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type Gather interface {
+	Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error)
+}
+
+type verse struct{}
+
+func (v verse) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
+	filter := bson.D{
+		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
+		bson.E{Key: "verses", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
+	}
+
+	pipeline := []bson.D{
+		{
+			{Key: "$match", Value: filter},
+		},
+		{
+			{Key: "$unwind", Value: "$verses"},
+		},
+		{
+			{Key: "$match", Value: bson.D{
+				{Key: "verses.chapter", Value: chapter},
+			}},
+		},
+		{
+			{Key: "$replaceRoot", Value: bson.D{
+				{Key: "newRoot", Value: "$verses"},
+			}},
+		},
+	}
+
+	cursor, err := coll.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var results []ent.Verse
+	if err := cursor.All(ctx, &results); err != nil {
 		return nil, err
 	}
 
-	return result, nil
+	for _, verse := range results {
+		fmt.Printf("Text: %s, Chapter: %s, VerseNumber: %s\n", verse.Text, verse.Chapter, verse.Verse_number)
+	}
+
+	return results, nil
+}
+
+type footnote struct{}
+
+func (f footnote) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
+	filter := bson.D{
+		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
+		bson.E{Key: "footnotes", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
+	}
+
+	pipeline := []bson.D{
+		{
+			{Key: "$match", Value: filter},
+		},
+		{
+			{Key: "$unwind", Value: "$footnotes"},
+		},
+		{
+			{Key: "$match", Value: bson.D{
+				{Key: "footnotes.references_chapter", Value: chapter},
+			}},
+		},
+		{
+			{Key: "$replaceRoot", Value: bson.D{
+				{Key: "newRoot", Value: "$footnotes"},
+			}},
+		},
+	}
+
+	cursor, err := coll.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var results []ent.Footnote
+	if err := cursor.All(ctx, &results); err != nil {
+		return nil, err
+	}
+
+	for _, footnote := range results {
+		fmt.Printf("FOOTNOTE: %s, fChapter: %s, fNumber: %s\n", footnote.Text, footnote.References_chapter, footnote.References)
+	}
+
+	return results, nil
+}
+
+type crossrefs struct{}
+
+func (c crossrefs) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
+	filter := bson.D{
+		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
+		bson.E{Key: "cross_references", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
+	}
+
+	pipeline := []bson.D{
+		{
+			{Key: "$match", Value: filter},
+		},
+		{
+			{Key: "$unwind", Value: "$cross_references"},
+		},
+		{
+			{Key: "$match", Value: bson.D{
+				{Key: "cross_references.belongs_to_chapter", Value: chapter},
+			}},
+		},
+		{
+			{Key: "$replaceRoot", Value: bson.D{
+				{Key: "newRoot", Value: "$cross_references"},
+			}},
+		},
+	}
+
+	cursor, err := coll.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var results []ent.Crossref
+	if err := cursor.All(ctx, &results); err != nil {
+		return nil, err
+	}
+
+	for _, crossref := range results {
+		fmt.Printf("CROSSREFERENCE: %s, cChapter: %s, cNumber: %s\n", crossref.Text, crossref.Belongs_to_chapter, crossref.References)
+	}
+
+	return results, nil
 }
