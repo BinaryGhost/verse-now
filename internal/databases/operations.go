@@ -16,15 +16,11 @@ import (
 
 func (db *Bible_db) ComposeChapter(book string, chapter string, ctx context.Context, abbr string) error {
 	// title
-	// footnotes
 	// tables
 	// special_elements
 
-	// verses
-	// crossrefs
-
 	gather_about := []Gather{
-		verse{}, footnote{}, crossrefs{},
+		verse{}, footnote{}, crossrefs{}, tables{}, titles{},
 	}
 
 	base_collection := db.Collection(abbr)
@@ -202,6 +198,96 @@ func (c crossrefs) Gather(ctx context.Context, coll *mongo.Collection, book stri
 
 	for _, crossref := range results {
 		fmt.Printf("CROSSREFERENCE: %s, cChapter: %s, cNumber: %s\n", crossref.Text, crossref.Belongs_to_chapter, crossref.References)
+	}
+
+	return results, nil
+}
+
+type titles struct{}
+
+func (t titles) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
+	filter := bson.D{
+		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
+		bson.E{Key: "titles", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
+	}
+
+	pipeline := []bson.D{
+		{
+			{Key: "$match", Value: filter},
+		},
+		{
+			{Key: "$unwind", Value: "$titles"},
+		},
+		{
+			{Key: "$match", Value: bson.D{
+				{Key: "titles.chapter", Value: chapter},
+			}},
+		},
+		{
+			{Key: "$replaceRoot", Value: bson.D{
+				{Key: "newRoot", Value: "$titles"},
+			}},
+		},
+	}
+
+	cursor, err := coll.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var results []ent.Title
+	if err := cursor.All(ctx, &results); err != nil {
+		return nil, err
+	}
+
+	for _, titles := range results {
+		fmt.Printf("TITLES: %s, tChapter: %s, tNumber: %s\n", titles.Content, titles.Chapter, titles.Last_verse)
+	}
+
+	return results, nil
+}
+
+type tables struct{}
+
+func (tb tables) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
+	filter := bson.D{
+		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
+		bson.E{Key: "tables", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
+	}
+
+	pipeline := []bson.D{
+		{
+			{Key: "$match", Value: filter},
+		},
+		{
+			{Key: "$unwind", Value: "$tables"},
+		},
+		{
+			{Key: "$match", Value: bson.D{
+				{Key: "tables.last_chapter", Value: chapter},
+			}},
+		},
+		{
+			{Key: "$replaceRoot", Value: bson.D{
+				{Key: "newRoot", Value: "$tables"},
+			}},
+		},
+	}
+
+	cursor, err := coll.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var results []ent.Table
+	if err := cursor.All(ctx, &results); err != nil {
+		return nil, err
+	}
+
+	for _, tables := range results {
+		fmt.Println(tables.String())
 	}
 
 	return results, nil
