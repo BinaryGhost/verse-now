@@ -11,7 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	// "go.mongodb.org/mongo-driver/v2/mongo/options"
-	// "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func (db *Bible_db) ComposeChapter(book string, chapter string, ctx context.Context, abbr string) error {
@@ -266,6 +265,51 @@ func (tb tables) Gather(ctx context.Context, coll *mongo.Collection, book string
 		{
 			{Key: "$match", Value: bson.D{
 				{Key: "tables.last_chapter", Value: chapter},
+			}},
+		},
+		{
+			{Key: "$replaceRoot", Value: bson.D{
+				{Key: "newRoot", Value: "$tables"},
+			}},
+		},
+	}
+
+	cursor, err := coll.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var results []ent.Table
+	if err := cursor.All(ctx, &results); err != nil {
+		return nil, err
+	}
+
+	for _, tables := range results {
+		fmt.Println(tables.String())
+	}
+
+	return results, nil
+}
+
+type special_elements struct{}
+
+func (s special_elements) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
+	filter := bson.D{
+		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
+		bson.E{Key: "specialelems", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
+	}
+
+	pipeline := []bson.D{
+		{
+			{Key: "$match", Value: filter},
+		},
+		{
+			{Key: "$unwind", Value: "$specialelems"},
+		},
+		{
+			{Key: "$match", Value: bson.D{
+				{Key: "specialelems.last_chapter", Value: chapter},
 			}},
 		},
 		{
