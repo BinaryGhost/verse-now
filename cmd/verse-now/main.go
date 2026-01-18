@@ -23,7 +23,7 @@ func main() {
 		// c.JSON(http.StatusOK, gin.H{
 		// 	"message": thing,
 		// })
-		fmt.Println(bible_db.ComposeChapter("Nehemiah", "7", ctx, "TWIASA"))
+		fmt.Println(bible_db.ComposeChapter("1 Peter", "2", ctx, "GMVGGM"))
 	})
 
 	// r.GET("/translations/:abbr/books/:book_name/chapters/:chapter_num")

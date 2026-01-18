@@ -19,7 +19,8 @@ func (db *Bible_db) ComposeChapter(book string, chapter string, ctx context.Cont
 	// special_elements
 
 	gather_about := []Gather{
-		verse{}, footnote{}, crossrefs{}, tables{}, titles{},
+		// verse{}, footnote{}, crossrefs{}, tables{}, titles{}, special_elements{},
+		special_elements{},
 	}
 
 	base_collection := db.Collection(abbr)
@@ -297,7 +298,7 @@ type special_elements struct{}
 func (s special_elements) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
 	filter := bson.D{
 		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
-		bson.E{Key: "specialelems", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
+		bson.E{Key: "special_elems.specials", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
 	}
 
 	pipeline := []bson.D{
@@ -305,16 +306,19 @@ func (s special_elements) Gather(ctx context.Context, coll *mongo.Collection, bo
 			{Key: "$match", Value: filter},
 		},
 		{
-			{Key: "$unwind", Value: "$specialelems"},
+			{Key: "$unwind", Value: "$special_elems"},
+		},
+		{
+			{Key: "$unwind", Value: "$special_elems.specials"},
 		},
 		{
 			{Key: "$match", Value: bson.D{
-				{Key: "specialelems.last_chapter", Value: chapter},
+				{Key: "special_elems.specials.chapter", Value: chapter},
 			}},
 		},
 		{
 			{Key: "$replaceRoot", Value: bson.D{
-				{Key: "newRoot", Value: "$tables"},
+				{Key: "newRoot", Value: "$special_elems.specials"},
 			}},
 		},
 	}
@@ -325,13 +329,13 @@ func (s special_elements) Gather(ctx context.Context, coll *mongo.Collection, bo
 	}
 	defer cursor.Close(ctx)
 
-	var results []ent.Table
+	var results []ent.Special
 	if err := cursor.All(ctx, &results); err != nil {
 		return nil, err
 	}
 
-	for _, tables := range results {
-		fmt.Println(tables.String())
+	for _, special := range results {
+		fmt.Printf(">>>>>>>>>>SPECIALS: %s\n", special.Content)
 	}
 
 	return results, nil

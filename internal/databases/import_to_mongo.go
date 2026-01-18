@@ -14,13 +14,13 @@ import (
 )
 
 type TranslationStructure struct {
-	General       any
-	Special_Elems any // Note to myself: keys have to match (in letter, not case)
-	Verses        any
-	Titles        any
-	Footnotes     any
-	Tables        any
-	CrossRefs     any
+	General          any
+	Special_Elems    any // Note to myself: keys have to match (in letter, not case)
+	Verses           any
+	Titles           any
+	Footnotes        any
+	Tables           any
+	Cross_references any
 }
 
 /*
