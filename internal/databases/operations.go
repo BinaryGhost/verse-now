@@ -6,7 +6,6 @@ import (
 	"fmt"
 	ent "github.com/BinaryGhost/verse-now/internal/entities"
 	"sync"
-
 	// "github.com/tidwall/gjson"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -14,14 +13,10 @@ import (
 )
 
 func (db *Bible_db) ComposeChapter(book string, chapter string, ctx context.Context, abbr string) error {
-	// title
-	// tables
-	// special_elements
-
 	gather_about := []Gather{
-		// verse{}, footnote{}, crossrefs{}, tables{}, titles{}, special_elements{},
-		special_elements{},
+		verses{}, footnotes{}, crossrefs{}, tables{}, titles{}, special_elements{},
 	}
+	var acc = ent.Chapter{}
 
 	base_collection := db.Collection(abbr)
 	if base_collection == nil {
@@ -29,14 +24,20 @@ func (db *Bible_db) ComposeChapter(book string, chapter string, ctx context.Cont
 		return errors.New(error_str)
 	}
 
-	_ = Collect(ctx, base_collection, gather_about, book, chapter)
-
-	// _ = GatherVerses(ctx, base_collection, book, chapter)
+	if err := CollectAll(ctx, base_collection, gather_about, book, chapter, &acc); err != nil {
+		return err
+	}
+	fmt.Println(len(acc.Verses))
+	fmt.Println(len(acc.Crossrefs))
+	fmt.Println(len(acc.Footnotes))
+	fmt.Println(len(acc.Specials))
+	fmt.Println(len(acc.Tables))
+	fmt.Println(len(acc.Titles))
 
 	return nil
 }
 
-func Collect(ctx context.Context, coll *mongo.Collection, gatherers []Gather, book string, chapter string) error {
+func CollectAll(ctx context.Context, coll *mongo.Collection, gatherers []Gather, book string, chapter string, acc *ent.Chapter) error {
 	var wg sync.WaitGroup
 	err_chan := make(chan error, 8)
 
@@ -44,7 +45,7 @@ func Collect(ctx context.Context, coll *mongo.Collection, gatherers []Gather, bo
 		wg.Add(1)
 		go func(g Gather) {
 			defer wg.Done()
-			_, err := g.Gather(ctx, coll, book, chapter)
+			err := g.Gather(ctx, coll, book, chapter, acc)
 			if err != nil {
 				err_chan <- err
 				return
@@ -65,12 +66,12 @@ func Collect(ctx context.Context, coll *mongo.Collection, gatherers []Gather, bo
 }
 
 type Gather interface {
-	Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error)
+	Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error
 }
 
-type verse struct{}
+type verses struct{}
 
-func (v verse) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
+func (v verses) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
 	filter := bson.D{
 		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
 		bson.E{Key: "verses", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
@@ -97,25 +98,26 @@ func (v verse) Gather(ctx context.Context, coll *mongo.Collection, book string, 
 
 	cursor, err := coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer cursor.Close(ctx)
 
 	var results []ent.Verse
 	if err := cursor.All(ctx, &results); err != nil {
-		return nil, err
+		return err
 	}
+	for _, i := range results {
+		fmt.Printf("VERSE: %s of TEXT: %s", i.Verse_number, i.Text)
 
-	for _, verse := range results {
-		fmt.Printf("Text: %s, Chapter: %s, VerseNumber: %s\n", verse.Text, verse.Chapter, verse.Verse_number)
 	}
+	acc.Verses = results
 
-	return results, nil
+	return nil
 }
 
-type footnote struct{}
+type footnotes struct{}
 
-func (f footnote) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
+func (f footnotes) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
 	filter := bson.D{
 		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
 		bson.E{Key: "footnotes", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
@@ -142,25 +144,22 @@ func (f footnote) Gather(ctx context.Context, coll *mongo.Collection, book strin
 
 	cursor, err := coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer cursor.Close(ctx)
 
 	var results []ent.Footnote
 	if err := cursor.All(ctx, &results); err != nil {
-		return nil, err
+		return err
 	}
+	acc.Footnotes = results
 
-	for _, footnote := range results {
-		fmt.Printf("FOOTNOTE: %s, fChapter: %s, fNumber: %s\n", footnote.Text, footnote.References_chapter, footnote.References)
-	}
-
-	return results, nil
+	return nil
 }
 
 type crossrefs struct{}
 
-func (c crossrefs) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
+func (c crossrefs) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
 	filter := bson.D{
 		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
 		bson.E{Key: "cross_references", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
@@ -187,25 +186,22 @@ func (c crossrefs) Gather(ctx context.Context, coll *mongo.Collection, book stri
 
 	cursor, err := coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer cursor.Close(ctx)
 
 	var results []ent.Crossref
 	if err := cursor.All(ctx, &results); err != nil {
-		return nil, err
+		return err
 	}
+	acc.Crossrefs = results
 
-	for _, crossref := range results {
-		fmt.Printf("CROSSREFERENCE: %s, cChapter: %s, cNumber: %s\n", crossref.Text, crossref.Belongs_to_chapter, crossref.References)
-	}
-
-	return results, nil
+	return nil
 }
 
 type titles struct{}
 
-func (t titles) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
+func (t titles) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
 	filter := bson.D{
 		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
 		bson.E{Key: "titles", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
@@ -232,25 +228,22 @@ func (t titles) Gather(ctx context.Context, coll *mongo.Collection, book string,
 
 	cursor, err := coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer cursor.Close(ctx)
 
 	var results []ent.Title
 	if err := cursor.All(ctx, &results); err != nil {
-		return nil, err
+		return err
 	}
+	acc.Titles = results
 
-	for _, titles := range results {
-		fmt.Printf("TITLES: %s, tChapter: %s, tNumber: %s\n", titles.Content, titles.Chapter, titles.Last_verse)
-	}
-
-	return results, nil
+	return nil
 }
 
 type tables struct{}
 
-func (tb tables) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
+func (tb tables) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
 	filter := bson.D{
 		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
 		bson.E{Key: "tables", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
@@ -277,25 +270,22 @@ func (tb tables) Gather(ctx context.Context, coll *mongo.Collection, book string
 
 	cursor, err := coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer cursor.Close(ctx)
 
 	var results []ent.Table
 	if err := cursor.All(ctx, &results); err != nil {
-		return nil, err
+		return err
 	}
+	acc.Tables = results
 
-	for _, tables := range results {
-		fmt.Println(tables.String())
-	}
-
-	return results, nil
+	return nil
 }
 
 type special_elements struct{}
 
-func (s special_elements) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string) (any, error) {
+func (s special_elements) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
 	filter := bson.D{
 		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
 		bson.E{Key: "special_elems.specials", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
@@ -325,18 +315,15 @@ func (s special_elements) Gather(ctx context.Context, coll *mongo.Collection, bo
 
 	cursor, err := coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer cursor.Close(ctx)
 
 	var results []ent.Special
 	if err := cursor.All(ctx, &results); err != nil {
-		return nil, err
+		return err
 	}
+	acc.Specials = results
 
-	for _, special := range results {
-		fmt.Printf(">>>>>>>>>>SPECIALS: %s\n", special.Content)
-	}
-
-	return results, nil
+	return nil
 }
