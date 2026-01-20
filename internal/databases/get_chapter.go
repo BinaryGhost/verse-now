@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	ent "github.com/BinaryGhost/verse-now/internal/entities"
-	"sync"
-	// "github.com/tidwall/gjson"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	// "go.mongodb.org/mongo-driver/v2/mongo/options"
+	"sync"
 )
+
+// TODO: Keep verse-numbers like "1-2" in mind
 
 func (db *Bible_db) ComposeChapter(book string, chapter string, ctx context.Context, abbr string) error {
 	gather_about := []Gather{
@@ -69,6 +69,10 @@ type Gather interface {
 	Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error
 }
 
+//
+// NOTE: We need to set $limit to 1, since multiple (identical) documents can be fetched with this. I dont know why this happens
+//
+
 type verses struct{}
 
 func (v verses) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
@@ -80,6 +84,9 @@ func (v verses) Gather(ctx context.Context, coll *mongo.Collection, book string,
 	pipeline := []bson.D{
 		{
 			{Key: "$match", Value: filter},
+		},
+		{
+			{Key: "$limit", Value: 1},
 		},
 		{
 			{Key: "$unwind", Value: "$verses"},
@@ -106,10 +113,6 @@ func (v verses) Gather(ctx context.Context, coll *mongo.Collection, book string,
 	if err := cursor.All(ctx, &results); err != nil {
 		return err
 	}
-	for _, i := range results {
-		fmt.Printf("VERSE: %s of TEXT: %s", i.Verse_number, i.Text)
-
-	}
 	acc.Verses = results
 
 	return nil
@@ -126,6 +129,9 @@ func (f footnotes) Gather(ctx context.Context, coll *mongo.Collection, book stri
 	pipeline := []bson.D{
 		{
 			{Key: "$match", Value: filter},
+		},
+		{
+			{Key: "$limit", Value: 1},
 		},
 		{
 			{Key: "$unwind", Value: "$footnotes"},
@@ -170,6 +176,9 @@ func (c crossrefs) Gather(ctx context.Context, coll *mongo.Collection, book stri
 			{Key: "$match", Value: filter},
 		},
 		{
+			{Key: "$limit", Value: 1},
+		},
+		{
 			{Key: "$unwind", Value: "$cross_references"},
 		},
 		{
@@ -210,6 +219,9 @@ func (t titles) Gather(ctx context.Context, coll *mongo.Collection, book string,
 	pipeline := []bson.D{
 		{
 			{Key: "$match", Value: filter},
+		},
+		{
+			{Key: "$limit", Value: 1},
 		},
 		{
 			{Key: "$unwind", Value: "$titles"},
@@ -254,6 +266,9 @@ func (tb tables) Gather(ctx context.Context, coll *mongo.Collection, book string
 			{Key: "$match", Value: filter},
 		},
 		{
+			{Key: "$limit", Value: 1},
+		},
+		{
 			{Key: "$unwind", Value: "$tables"},
 		},
 		{
@@ -294,6 +309,9 @@ func (s special_elements) Gather(ctx context.Context, coll *mongo.Collection, bo
 	pipeline := []bson.D{
 		{
 			{Key: "$match", Value: filter},
+		},
+		{
+			{Key: "$limit", Value: 1},
 		},
 		{
 			{Key: "$unwind", Value: "$special_elems"},

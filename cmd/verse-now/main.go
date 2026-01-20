@@ -22,8 +22,8 @@ func main() {
 		// thing := c.Param("thing")
 		// c.JSON(http.StatusOK, gin.H{
 		// 	"message": thing,
-		// })
-		fmt.Println(bible_db.ComposeChapter("1 Peter", "2", ctx, "GMVGGM"))
+		// })db.findOne
+		fmt.Println(bible_db.ComposeChapter("Genesis", "1", ctx, "NLDNBG"))
 	})
 
 	// r.GET("/translations/:abbr/books/:book_name/chapters/:chapter_num")

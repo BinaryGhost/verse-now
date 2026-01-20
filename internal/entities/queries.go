@@ -8,3 +8,10 @@ type Chapter struct {
 	Specials  []Special
 	Titles    []Title
 }
+
+type WholeVerse struct {
+	Verses      []Verse
+	InsideTable bool
+	Footnotes   []Footnote
+	Crossrefs   []Crossref
+}
