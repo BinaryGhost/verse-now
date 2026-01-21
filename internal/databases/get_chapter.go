@@ -12,19 +12,19 @@ import (
 
 // TODO: Keep verse-numbers like "1-2" in mind
 
-func (db *Bible_db) ComposeChapter(book string, chapter string, ctx context.Context, abbr string) error {
+func (db *Bible_db) ComposeChapter(book_code string, chapter string, ctx context.Context, trans_abbr string) error {
 	gather_about := []Gather{
 		verses{}, footnotes{}, crossrefs{}, tables{}, titles{}, special_elements{},
 	}
 	var acc = ent.Chapter{}
 
-	base_collection := db.Collection(abbr)
+	base_collection := db.Collection(trans_abbr)
 	if base_collection == nil {
-		error_str := fmt.Sprintf("Could not find collection of '%s'", abbr)
+		error_str := fmt.Sprintf("Could not find collection of '%s'", trans_abbr)
 		return errors.New(error_str)
 	}
 
-	if err := CollectAll(ctx, base_collection, gather_about, book, chapter, &acc); err != nil {
+	if err := CollectAll(ctx, base_collection, gather_about, book_code, chapter, &acc); err != nil {
 		return err
 	}
 	fmt.Println(len(acc.Verses))
@@ -37,7 +37,7 @@ func (db *Bible_db) ComposeChapter(book string, chapter string, ctx context.Cont
 	return nil
 }
 
-func CollectAll(ctx context.Context, coll *mongo.Collection, gatherers []Gather, book string, chapter string, acc *ent.Chapter) error {
+func CollectAll(ctx context.Context, coll *mongo.Collection, gatherers []Gather, book_code string, chapter string, acc *ent.Chapter) error {
 	var wg sync.WaitGroup
 	err_chan := make(chan error, 8)
 
@@ -45,7 +45,7 @@ func CollectAll(ctx context.Context, coll *mongo.Collection, gatherers []Gather,
 		wg.Add(1)
 		go func(g Gather) {
 			defer wg.Done()
-			err := g.Gather(ctx, coll, book, chapter, acc)
+			err := g.Gather(ctx, coll, book_code, chapter, acc)
 			if err != nil {
 				err_chan <- err
 				return
@@ -75,9 +75,9 @@ type Gather interface {
 
 type verses struct{}
 
-func (v verses) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
+func (v verses) Gather(ctx context.Context, coll *mongo.Collection, book_code string, chapter string, acc *ent.Chapter) error {
 	filter := bson.D{
-		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
+		bson.E{Key: "general.about_book.book_code", Value: book_code},
 		bson.E{Key: "verses", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
 	}
 
@@ -120,9 +120,9 @@ func (v verses) Gather(ctx context.Context, coll *mongo.Collection, book string,
 
 type footnotes struct{}
 
-func (f footnotes) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
+func (f footnotes) Gather(ctx context.Context, coll *mongo.Collection, book_code string, chapter string, acc *ent.Chapter) error {
 	filter := bson.D{
-		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
+		bson.E{Key: "general.about_book.book_code", Value: book_code},
 		bson.E{Key: "footnotes", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
 	}
 
@@ -165,9 +165,9 @@ func (f footnotes) Gather(ctx context.Context, coll *mongo.Collection, book stri
 
 type crossrefs struct{}
 
-func (c crossrefs) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
+func (c crossrefs) Gather(ctx context.Context, coll *mongo.Collection, book_code string, chapter string, acc *ent.Chapter) error {
 	filter := bson.D{
-		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
+		bson.E{Key: "general.about_book.book_code", Value: book_code},
 		bson.E{Key: "cross_references", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
 	}
 
@@ -210,9 +210,9 @@ func (c crossrefs) Gather(ctx context.Context, coll *mongo.Collection, book stri
 
 type titles struct{}
 
-func (t titles) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
+func (t titles) Gather(ctx context.Context, coll *mongo.Collection, book_code string, chapter string, acc *ent.Chapter) error {
 	filter := bson.D{
-		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
+		bson.E{Key: "general.about_book.book_code", Value: book_code},
 		bson.E{Key: "titles", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
 	}
 
@@ -255,9 +255,9 @@ func (t titles) Gather(ctx context.Context, coll *mongo.Collection, book string,
 
 type tables struct{}
 
-func (tb tables) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
+func (tb tables) Gather(ctx context.Context, coll *mongo.Collection, book_code string, chapter string, acc *ent.Chapter) error {
 	filter := bson.D{
-		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
+		bson.E{Key: "general.about_book.book_code", Value: book_code},
 		bson.E{Key: "tables", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
 	}
 
@@ -300,9 +300,9 @@ func (tb tables) Gather(ctx context.Context, coll *mongo.Collection, book string
 
 type special_elements struct{}
 
-func (s special_elements) Gather(ctx context.Context, coll *mongo.Collection, book string, chapter string, acc *ent.Chapter) error {
+func (s special_elements) Gather(ctx context.Context, coll *mongo.Collection, book_code string, chapter string, acc *ent.Chapter) error {
 	filter := bson.D{
-		bson.E{Key: "general.about_book.bookname_in_english", Value: book},
+		bson.E{Key: "general.about_book.book_code", Value: book_code},
 		bson.E{Key: "special_elems.specials", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
 	}
 

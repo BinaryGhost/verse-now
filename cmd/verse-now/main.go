@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
-
 	db "github.com/BinaryGhost/verse-now/internal/databases"
+	ent "github.com/BinaryGhost/verse-now/internal/entities"
+	prs "github.com/BinaryGhost/verse-now/internal/parsers"
 	"github.com/gin-gonic/gin"
-	// "net/http"
 )
 
 func main() {
@@ -18,12 +17,13 @@ func main() {
 	defer cancel()
 
 	r := gin.Default()
-	r.GET("/test", func(c *gin.Context) {
-		// thing := c.Param("thing")
-		// c.JSON(http.StatusOK, gin.H{
-		// 	"message": thing,
-		// })db.findOne
-		fmt.Println(bible_db.ComposeChapter("Genesis", "1", ctx, "NLDNBG"))
+	r.GET("/test/:reference", func(c *gin.Context) {
+		bible_reference_string := prs.BibleReferencesURL(c.Param("reference"))
+		make_reference, _ := prs.ReturnAllReferences(bible_reference_string)
+
+		todo := ent.WholeVerse{}
+
+		bible_db.ComposeVerse(ctx, &todo, "NLDNBG", "PSA", &make_reference)
 	})
 
 	// r.GET("/translations/:abbr/books/:book_name/chapters/:chapter_num")
