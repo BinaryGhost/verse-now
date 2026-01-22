@@ -1,5 +1,7 @@
 package entities
 
+// TODO: Add mutexes
+
 type Chapter struct {
 	Verses    []Verse
 	Footnotes []Footnote

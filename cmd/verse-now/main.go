@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	db "github.com/BinaryGhost/verse-now/internal/databases"
 	ent "github.com/BinaryGhost/verse-now/internal/entities"
 	prs "github.com/BinaryGhost/verse-now/internal/parsers"
@@ -23,7 +24,12 @@ func main() {
 
 		todo := ent.WholeVerse{}
 
-		bible_db.ComposeVerse(ctx, &todo, "NLDNBG", "PSA", &make_reference)
+		bible_db.ComposeVerses(ctx, &todo, "NLDNBG", "PSA", &make_reference)
+
+		fmt.Println(">>>>", len(todo.Verses))
+		for _, i := range todo.Verses {
+			fmt.Printf("%s - %s\n", i.Chapter, i.Verse_number)
+		}
 	})
 
 	// r.GET("/translations/:abbr/books/:book_name/chapters/:chapter_num")
