@@ -37,10 +37,13 @@ func (db *Bible_db) ComposeVerses(ctx context.Context, acc *ent.WholeVerse, tran
 		go func(index int) {
 			defer wg.Done()
 
-			chapter_number := fmt.Sprintf("%d", alf.Chapter)
+			chapter_number := alf.Chapter
 
-			lower_number := fmt.Sprintf("%d", alf.MinVerses[index])
-			higher_number := fmt.Sprintf("%d", alf.MaxVerses[index])
+			lower_number := alf.MinVerses[index]
+			higher_number := alf.MaxVerses[index]
+
+			// fmt.Println("lower_number: ", lower_number)
+			// fmt.Println("higher_number: ", higher_number)
 
 			pipeline := []bson.D{
 				{
@@ -55,13 +58,10 @@ func (db *Bible_db) ComposeVerses(ctx context.Context, acc *ent.WholeVerse, tran
 				{
 					{Key: "$match", Value: bson.D{
 						{Key: "verses.chapter", Value: chapter_number},
-						{
-							Key: "verses.verse_number",
-							Value: bson.D{
-								{Key: "$gte", Value: lower_number},
-								{Key: "$lte", Value: higher_number},
-							},
-						}, // TODO: Handle verses, like 1-2
+						{Key: "verses.verse_number", Value: bson.D{
+							{Key: "$gte", Value: lower_number},
+							{Key: "$lte", Value: higher_number},
+						}}, // TODO: Handle verses, like 1-2
 					}},
 				},
 				{

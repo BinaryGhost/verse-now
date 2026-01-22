@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	ent "github.com/BinaryGhost/verse-now/internal/entities"
 	"github.com/tidwall/gjson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"io"
@@ -12,16 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 )
-
-type TranslationStructure struct {
-	General          any
-	Special_Elems    any // Note to myself: keys have to match (in letter, not case)
-	Verses           any
-	Titles           any
-	Footnotes        any
-	Tables           any
-	Cross_references any
-}
 
 /*
 Walk through a directory, where the babij is located ($PATH/babij_repo/collection) and find
@@ -55,6 +46,7 @@ func IterateThroughBibleCollection(collection_path string, client *MClient, ctx 
 
 func exportBabijTranslation(babij_translation_source string, bdb *Bible_db, ctx context.Context) {
 	export_cxt, cancel := context.WithCancel(ctx)
+	var _translation string
 	defer cancel()
 	err := filepath.Walk(babij_translation_source, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -76,9 +68,9 @@ func exportBabijTranslation(babij_translation_source string, bdb *Bible_db, ctx 
 
 			read, _ := io.ReadAll(file)
 
-			var book_json TranslationStructure
+			var book_json ent.Migration_Structure
 			if err := json.Unmarshal(read, &book_json); err != nil {
-				log.Fatalf("JSON could not be parsed for '%s'", path)
+				log.Fatalf("JSON could not be parsed for '%s', because `%s`", path, err)
 			}
 
 			if val := gjson.GetBytes(read, "general.about_translation.translation_abbr").String(); val == "" {
@@ -90,15 +82,21 @@ func exportBabijTranslation(babij_translation_source string, bdb *Bible_db, ctx 
 			// translation_abbr = book_json.General.AboutTranslation.TranslationAbbr
 
 			coll := bdb.createCollection(translation_abbr)
+			_translation = path
 
-			coll.insertBook(book_json, translation_abbr, base_name, export_cxt)
+			real_book_json, err := ent.Migration_to_real_Structure(&book_json)
+			if err != nil {
+				return err
+			}
+
+			coll.insertBook(real_book_json, translation_abbr, base_name, export_cxt)
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		log.Fatalf("Could not go through '%s', because of error '%s'\n", babij_translation_source, err)
+		log.Fatalf("Could not go through '%s%s', because of error '%s'\n", babij_translation_source, _translation, err)
 	}
 }
 

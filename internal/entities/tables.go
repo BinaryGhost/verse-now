@@ -18,8 +18,8 @@ type CellGroup map[string]any
 
 // TableData represents the entire table structure
 type Table struct {
-	LastChapter string     `bson:"last_chapter"`
-	LastVerse   string     `bson:"last_verse"`
+	LastChapter uint64     `bson:"last_chapter"`
+	LastVerse   uint64     `bson:"last_verse"`
 	Table       []TableRow `bson:"table"`
 	Additionals []any      `bson:"additionals,omitempty"`
 }
