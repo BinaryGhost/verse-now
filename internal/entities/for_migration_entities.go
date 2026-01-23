@@ -9,6 +9,10 @@ import (
 )
 
 func convert_num(num string) (uint64, error) {
+	if num == "" {
+		return 0, nil
+	}
+
 	uinti, err := strconv.ParseUint(num, 10, 64)
 
 	// Some things like footnotes can appear the beginning of chapter,
@@ -21,43 +25,94 @@ func convert_num(num string) (uint64, error) {
 	return uinti, nil
 }
 
-func convert_to_right_footnote() {
+func convert_to_right_footnote(f Footnote_migrate) (Footnote, error) {
+	chapt, err1 := convert_num(f.References_chapter)
+	vrs, err2 := convert_to_verse_number(f.References_verse)
+
+	if err1 != nil || err2 != nil {
+		err_mgs := fmt.Sprintf("%s, %s, OH OH ~Footnotes", err1, err2)
+		return Footnote{}, errors.New(err_mgs)
+	}
+
+	return Footnote{
+		References:         f.References,
+		References_chapter: chapt,
+		References_verse:   vrs,
+		Text:               f.Text,
+	}, nil
 }
 
-func convert_to_right_crossref() {
+func convert_to_right_crossref(cr Crossref_migrate) (Crossref, error) {
+	chapt, err1 := convert_num(cr.Belongs_to_chapter)
+	vrs, err2 := convert_to_verse_number(cr.Belongs_to_verse)
+
+	if err1 != nil || err2 != nil {
+		return Crossref{}, errors.New("OH OH ~Crossrefs")
+	}
+
+	return Crossref{
+		References:         cr.References,
+		Belongs_to_chapter: chapt,
+		Belongs_to_verse:   vrs,
+		Text:               cr.Text,
+	}, nil
 }
 
-func convert_to_verse_number(verse string) (Verse_number, error) {
+// Turns a verse-number like '1b' to [string, '1', 'b']
+func splitInto_Number_Notation(text string) []string {
+	re := regexp.MustCompile(`^(\d+)([a-zA-Z]+)$`)
+	matches := re.FindStringSubmatch(text)
+
+	return matches
+}
+
+func convert_to_verse_number(verse string) (Vrs_number_strct, error) {
 	if strings.Contains(verse, "-") {
 		_parts := strings.Split(verse, "-")
+		var min_notation, max_notation string
 
 		left, err := strconv.ParseUint(_parts[0], 10, 64)
 		if err != nil {
-			return Verse_number{}, errors.New("Left 'number' not number")
+			matches := splitInto_Number_Notation(_parts[0])
+			left, err = convert_num(matches[1])
+
+			if len(matches) != 3 || err != nil {
+				return Vrs_number_strct{}, errors.New("Left 'number' not number")
+			}
+
+			min_notation = matches[2]
 		}
 
 		right, err := strconv.ParseUint(_parts[1], 10, 64)
 		if err != nil {
-			return Verse_number{}, errors.New("Right 'number' not number")
+			matches := splitInto_Number_Notation(_parts[1])
+			right, err = convert_num(matches[1])
+
+			if len(matches) != 3 || err != nil {
+				return Vrs_number_strct{}, errors.New("Right 'number' not number")
+			}
+
+			max_notation = matches[2]
 		}
 
-		return Verse_number{
-			min: left,
-			max: right,
+		return Vrs_number_strct{
+			min_range:    left,
+			max_range:    right,
+			min_notation: min_notation,
+			max_notation: max_notation,
 		}, nil
 	}
 
-	re := regexp.MustCompile(`^(\d+)([a-zA-Z]+)$`)
-	matches := re.FindStringSubmatch(verse)
+	matches := splitInto_Number_Notation(verse)
 
 	if len(matches) == 3 {
 		num, err := convert_num(matches[1])
 		if err != nil {
-			return Verse_number{}, errors.New("Notation number wrong")
+			return Vrs_number_strct{}, errors.New("Notation number wrong")
 		}
-		return Verse_number{
-			min:          num,
-			max:          num,
+		return Vrs_number_strct{
+			min_range:    num,
+			max_range:    num,
 			min_notation: matches[2],
 			max_notation: matches[2],
 		}, nil
@@ -65,12 +120,12 @@ func convert_to_verse_number(verse string) (Verse_number, error) {
 
 	num, err := convert_num(verse)
 	if err != nil {
-		return Verse_number{}, err
+		return Vrs_number_strct{}, err
 	}
 
-	return Verse_number{
-		min: num,
-		max: num,
+	return Vrs_number_strct{
+		min_range: num,
+		max_range: num,
 	}, nil
 }
 
@@ -88,7 +143,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 		}
 
 		if err2 != nil {
-			err_mgs := fmt.Sprintf("%v, OH OH not Verse_number again ~Verse", err2)
+			err_mgs := fmt.Sprintf("%v, OH OH not Verse_number_strct again ~Verse", err2)
 			return tsst, errors.New(err_mgs)
 		}
 
@@ -106,36 +161,17 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 	}
 
 	for _, f := range ms.Footnotes {
-		chapt, err1 := convert_num(f.References_chapter)
-		vrs, err2 := convert_to_verse_number(f.References_verse)
-
-		if err1 != nil || err2 != nil {
-			err_mgs := fmt.Sprintf("%s, %s, OH OH ~Footnotes", err1, err2)
-			return tsst, errors.New(err_mgs)
-		}
-
-		footnote := Footnote{
-			References:         f.References,
-			References_chapter: chapt,
-			References_verse:   vrs,
-			Text:               f.Text,
+		footnote, err := convert_to_right_footnote(f)
+		if err != nil {
+			return tsst, err
 		}
 
 		tsst.Footnotes = append(tsst.Footnotes, footnote)
 	}
 	for _, cr := range ms.Crossrefs {
-		chapt, err1 := convert_num(cr.Belongs_to_chapter)
-		vrs, err2 := convert_to_verse_number(cr.Belongs_to_verse)
-
-		if err1 != nil || err2 != nil {
-			return tsst, errors.New("OH OH ~Crossrefs")
-		}
-
-		crossref := Crossref{
-			References:         cr.References,
-			Belongs_to_chapter: chapt,
-			Belongs_to_verse:   vrs,
-			Text:               cr.Text,
+		crossref, err := convert_to_right_crossref(cr)
+		if err != nil {
+			return tsst, err
 		}
 
 		tsst.Cross_references = append(tsst.Cross_references, crossref)
@@ -143,10 +179,11 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 
 	for _, s := range ms.Raw_Specials.Specials {
 		chapt, err1 := convert_num(s.Chapter)
-		vrs, err2 := convert_num(s.Last_verse)
+		vrs, err2 := convert_to_verse_number(s.Last_verse)
 
 		if err1 != nil || err2 != nil {
-			return tsst, errors.New("OH OH ~Specials")
+			err_msg := fmt.Sprintf("%s, %s - OH OH ~Specials", err1, err2)
+			return tsst, errors.New(err_msg)
 		}
 
 		special := Special{
@@ -161,29 +198,92 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 
 	for _, t := range ms.Titles {
 		chapt, err1 := convert_num(t.Chapter)
-		vrs, err2 := convert_num(t.Last_verse)
+		vrs, err2 := convert_to_verse_number(t.Last_verse)
 
 		if err1 != nil || err2 != nil {
-			return tsst, errors.New("OH OH ~Specials")
+			err_msg := fmt.Sprintf("%s, %s - OH OH ~Titles", err1, err2)
+			return tsst, errors.New(err_msg)
 		}
 
-		// TODO: Handle lists of footnotes or crossrefs
+		tmp_footnote_array := []Footnote{}
+		for _, f := range t.Footnote { // Yes, it is a list, but is singular in it's name
+			append_f, err := convert_to_right_footnote(f)
+			if err != nil {
+				return tsst, err
+			}
 
+			tmp_footnote_array = append(tmp_footnote_array, append_f)
+		}
+
+		tmp_crossref_array := []Crossref{}
+		for _, cr := range t.Crossref { // Same here
+			append_cr, err := convert_to_right_crossref(cr)
+			if err != nil {
+				return tsst, err
+			}
+
+			tmp_crossref_array = append(tmp_crossref_array, append_cr)
+		}
+
+		title := Title{
+			Kind:       t.Kind,
+			Content:    t.Content,
+			Last_verse: vrs,
+			Chapter:    chapt,
+			Footnote:   tmp_footnote_array,
+			Crossref:   tmp_crossref_array,
+		}
+
+		tsst.Titles = append(tsst.Titles, title)
 	}
 
 	for _, tb := range ms.Tables {
 		chapt, err1 := convert_num(tb.Last_chapter)
-		vrs, err2 := convert_num(tb.Last_verse)
+		vrs, err2 := convert_to_verse_number(tb.Last_verse)
 
 		if err1 != nil || err2 != nil {
 			return tsst, errors.New("OH OH ~Tables")
 		}
 
+		var additionals_real Additional
+		if len(tb.Additionals) > 0 {
+			tmp_footnote_array := []Footnote{}
+			for _, f := range tb.Additionals[0].footnotes["footnotes"] {
+				append_f, err := convert_to_right_footnote(f)
+				if err != nil {
+					return tsst, err
+				}
+
+				tmp_footnote_array = append(tmp_footnote_array, append_f)
+			}
+
+			tmp_crossref_array := []Crossref{}
+			for _, cr := range tb.Additionals[0].crossrefs["crossrefs"] {
+				append_cr, err := convert_to_right_crossref(cr)
+				if err != nil {
+					return tsst, err
+				}
+
+				tmp_crossref_array = append(tmp_crossref_array, append_cr)
+			}
+
+			f := make(Footnote_additional)
+			f["footnotes"] = tmp_footnote_array
+
+			c := make(Crossrefs_additional)
+			c["crossrefs"] = tmp_crossref_array
+
+			additionals_real = Additional{
+				Footnotes: f,
+				Crossrefs: c,
+			}
+		}
+
 		table := Table{
-			LastChapter: chapt,
-			LastVerse:   vrs,
-			Table:       tb.Table,
-			Additionals: tb.Additionals,
+			Last_chapter: chapt,
+			Last_verse:   vrs,
+			Table:        tb.Table,
+			Additionals:  []Additional{additionals_real},
 		}
 
 		tsst.Tables = append(tsst.Tables, table)
@@ -229,15 +329,17 @@ type Special_migrate struct {
 	Kind       string
 }
 
-type TableRow_migrate map[string][]CellGroup
-
 type CellGroup_migrate map[string]any
 
 type Table_migrate struct {
-	Last_chapter string     `json:"last_chapter"`
-	Last_verse   string     `json:"last_verse"`
-	Table        []TableRow `json:"table"`
-	Additionals  []any      `json:"additionals,omitempty"`
+	Last_chapter string                `json:"last_chapter"`
+	Last_verse   string                `json:"last_verse"`
+	Table        []TableRow            `json:"table"` // NOTE: IS THE SAME AS THE REAL ENTITY
+	Additionals  []additionals_migrate `json:"additionals,omitempty"`
+}
+type additionals_migrate struct {
+	footnotes map[string][]Footnote_migrate // always is "footnotes"
+	crossrefs map[string][]Crossref_migrate // always is "crossrefs"
 }
 
 type Title_migrate struct {

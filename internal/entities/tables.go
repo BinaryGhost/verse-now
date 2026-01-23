@@ -18,16 +18,27 @@ type CellGroup map[string]any
 
 // TableData represents the entire table structure
 type Table struct {
-	LastChapter uint64     `bson:"last_chapter"`
-	LastVerse   uint64     `bson:"last_verse"`
-	Table       []TableRow `bson:"table"`
-	Additionals []any      `bson:"additionals,omitempty"`
+	Last_chapter uint64           `bson:"last_chapter"`
+	Last_verse   Vrs_number_strct `bson:"last_verse"`
+	Table        []TableRow       `bson:"table"`
+	Additionals  []Additional     `bson:"additionals,omitempty"`
 }
+
+type Additional struct {
+	Footnotes Footnote_additional  // always is "footnotes"
+	Crossrefs Crossrefs_additional // always is "crossrefs"
+}
+
+// Use it carefully
+type Footnote_additional map[string][]Footnote
+
+// Use it carefully
+type Crossrefs_additional map[string][]Crossref
 
 // String returns a human-readable string representation of the table
 func (td Table) String() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Chapter: %s, Verse: %s\n", td.LastChapter, td.LastVerse))
+	sb.WriteString(fmt.Sprintf("Chapter: %s, Verse: %s\n", td.Last_chapter, td.Last_verse))
 
 	for _, row := range td.Table {
 		for rowKey, cellGroups := range row {
@@ -83,4 +94,12 @@ func (td Table) String() string {
 //                         }
 //                     ]
 //                 },
+//				   "additionals": [
+//						{
+//							"footnotes": [footnote-array]
+//						} [or]
+//						{
+//							"crossrefs": [crossref-array]
+//						}
+//				    ]
 //			...
