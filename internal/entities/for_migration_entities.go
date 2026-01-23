@@ -26,34 +26,40 @@ func convert_num(num string) (uint64, error) {
 }
 
 func convert_to_right_footnote(f Footnote_migrate) (Footnote, error) {
-	chapt, err1 := convert_num(f.References_chapter)
-	vrs, err2 := convert_to_verse_number(f.References_verse)
+	chapt, err := convert_num(f.References_chapter)
+	i, err2 := convert_to_intermediate_form(f.References_verse)
 
-	if err1 != nil || err2 != nil {
-		err_mgs := fmt.Sprintf("%s, %s, OH OH ~Footnotes", err1, err2)
+	if err != nil {
+		err_mgs := fmt.Sprintf("%s, %s - OH OH ~Footnotes", err, err2)
 		return Footnote{}, errors.New(err_mgs)
 	}
 
 	return Footnote{
 		References:         f.References,
-		References_chapter: chapt,
-		References_verse:   vrs,
+		Chapter:            chapt,
+		Verse_min_range:    i.min_range,
+		Verse_max_range:    i.max_range,
+		Verse_min_notation: i.min_notation,
+		Verse_max_notation: i.max_notation,
 		Text:               f.Text,
 	}, nil
 }
 
 func convert_to_right_crossref(cr Crossref_migrate) (Crossref, error) {
-	chapt, err1 := convert_num(cr.Belongs_to_chapter)
-	vrs, err2 := convert_to_verse_number(cr.Belongs_to_verse)
+	chapt, err := convert_num(cr.Belongs_to_chapter)
+	i, err2 := convert_to_intermediate_form(cr.Belongs_to_verse)
 
-	if err1 != nil || err2 != nil {
+	if err != nil || err2 != nil {
 		return Crossref{}, errors.New("OH OH ~Crossrefs")
 	}
 
 	return Crossref{
 		References:         cr.References,
-		Belongs_to_chapter: chapt,
-		Belongs_to_verse:   vrs,
+		Chapter:            chapt,
+		Verse_min_range:    i.min_range,
+		Verse_max_range:    i.max_range,
+		Verse_min_notation: i.min_notation,
+		Verse_max_notation: i.max_notation,
 		Text:               cr.Text,
 	}, nil
 }
@@ -66,7 +72,14 @@ func splitInto_Number_Notation(text string) []string {
 	return matches
 }
 
-func convert_to_verse_number(verse string) (Vrs_number_strct, error) {
+type intermediate_form struct {
+	min_range    uint64
+	max_range    uint64
+	min_notation string
+	max_notation string
+}
+
+func convert_to_intermediate_form(verse string) (intermediate_form, error) {
 	if strings.Contains(verse, "-") {
 		_parts := strings.Split(verse, "-")
 		var min_notation, max_notation string
@@ -77,7 +90,7 @@ func convert_to_verse_number(verse string) (Vrs_number_strct, error) {
 			left, err = convert_num(matches[1])
 
 			if len(matches) != 3 || err != nil {
-				return Vrs_number_strct{}, errors.New("Left 'number' not number")
+				return intermediate_form{}, errors.New("Left 'number' not number")
 			}
 
 			min_notation = matches[2]
@@ -89,13 +102,13 @@ func convert_to_verse_number(verse string) (Vrs_number_strct, error) {
 			right, err = convert_num(matches[1])
 
 			if len(matches) != 3 || err != nil {
-				return Vrs_number_strct{}, errors.New("Right 'number' not number")
+				return intermediate_form{}, errors.New("Right 'number' not number")
 			}
 
 			max_notation = matches[2]
 		}
 
-		return Vrs_number_strct{
+		return intermediate_form{
 			min_range:    left,
 			max_range:    right,
 			min_notation: min_notation,
@@ -108,9 +121,9 @@ func convert_to_verse_number(verse string) (Vrs_number_strct, error) {
 	if len(matches) == 3 {
 		num, err := convert_num(matches[1])
 		if err != nil {
-			return Vrs_number_strct{}, errors.New("Notation number wrong")
+			return intermediate_form{}, errors.New("Notation number wrong")
 		}
-		return Vrs_number_strct{
+		return intermediate_form{
 			min_range:    num,
 			max_range:    num,
 			min_notation: matches[2],
@@ -120,12 +133,14 @@ func convert_to_verse_number(verse string) (Vrs_number_strct, error) {
 
 	num, err := convert_num(verse)
 	if err != nil {
-		return Vrs_number_strct{}, err
+		return intermediate_form{}, err
 	}
 
-	return Vrs_number_strct{
-		min_range: num,
-		max_range: num,
+	return intermediate_form{
+		min_range:    num,
+		max_range:    num,
+		min_notation: "",
+		max_notation: "",
 	}, nil
 }
 
@@ -135,7 +150,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 
 	for _, v := range ms.Verses {
 		chapt, err1 := convert_num(v.Chapter)
-		vrs, err2 := convert_to_verse_number(v.Verse_number)
+		i, err2 := convert_to_intermediate_form(v.Verse_number)
 
 		if err1 != nil {
 			err_mgs := fmt.Sprintf("%v, OH OH ~Verse", err1)
@@ -150,7 +165,10 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 		verse := Verse{
 			Global_locator:         v.Global_locator,
 			Chapter:                chapt,
-			Verse_number:           vrs,
+			Verse_min_range:        i.min_range,
+			Verse_max_range:        i.max_range,
+			Verse_min_notation:     i.min_notation,
+			Verse_max_notation:     i.max_notation,
 			Alternate_verse_number: v.Alternate_verse_number,
 			Text:                   v.Text,
 			Is_a_list_element:      v.Is_a_list_element,
@@ -179,7 +197,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 
 	for _, s := range ms.Raw_Specials.Specials {
 		chapt, err1 := convert_num(s.Chapter)
-		vrs, err2 := convert_to_verse_number(s.Last_verse)
+		i, err2 := convert_to_intermediate_form(s.Last_verse)
 
 		if err1 != nil || err2 != nil {
 			err_msg := fmt.Sprintf("%s, %s - OH OH ~Specials", err1, err2)
@@ -187,10 +205,13 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 		}
 
 		special := Special{
-			Kind:       s.Kind,
-			Content:    s.Content,
-			Chapter:    chapt,
-			Last_verse: vrs,
+			Kind:               s.Kind,
+			Content:            s.Content,
+			Chapter:            chapt,
+			Verse_min_range:    i.min_range,
+			Verse_max_range:    i.max_range,
+			Verse_min_notation: i.min_notation,
+			Verse_max_notation: i.max_notation,
 		}
 
 		tsst.Special_Elems = append(tsst.Special_Elems, special)
@@ -198,7 +219,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 
 	for _, t := range ms.Titles {
 		chapt, err1 := convert_num(t.Chapter)
-		vrs, err2 := convert_to_verse_number(t.Last_verse)
+		i, err2 := convert_to_intermediate_form(t.Last_verse)
 
 		if err1 != nil || err2 != nil {
 			err_msg := fmt.Sprintf("%s, %s - OH OH ~Titles", err1, err2)
@@ -226,12 +247,15 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 		}
 
 		title := Title{
-			Kind:       t.Kind,
-			Content:    t.Content,
-			Last_verse: vrs,
-			Chapter:    chapt,
-			Footnote:   tmp_footnote_array,
-			Crossref:   tmp_crossref_array,
+			Kind:               t.Kind,
+			Content:            t.Content,
+			Verse_min_range:    i.min_range,
+			Verse_max_range:    i.max_range,
+			Verse_min_notation: i.min_notation,
+			Verse_max_notation: i.max_notation,
+			Chapter:            chapt,
+			Footnotes:          tmp_footnote_array,
+			Crossrefs:          tmp_crossref_array,
 		}
 
 		tsst.Titles = append(tsst.Titles, title)
@@ -239,7 +263,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 
 	for _, tb := range ms.Tables {
 		chapt, err1 := convert_num(tb.Last_chapter)
-		vrs, err2 := convert_to_verse_number(tb.Last_verse)
+		i, err2 := convert_to_intermediate_form(tb.Last_verse)
 
 		if err1 != nil || err2 != nil {
 			return tsst, errors.New("OH OH ~Tables")
@@ -280,10 +304,13 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 		}
 
 		table := Table{
-			Last_chapter: chapt,
-			Last_verse:   vrs,
-			Table:        tb.Table,
-			Additionals:  []Additional{additionals_real},
+			Chapter:            chapt,
+			Verse_min_range:    i.min_range,
+			Verse_max_range:    i.max_range,
+			Verse_min_notation: i.min_notation,
+			Verse_max_notation: i.max_notation,
+			Table:              tb.Table,
+			Additionals:        []Additional{additionals_real},
 		}
 
 		tsst.Tables = append(tsst.Tables, table)

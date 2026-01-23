@@ -1,14 +1,6 @@
 package entities
 
-import (
-	"encoding/json"
-	"fmt"
-	"strings"
-)
-
-// I know, I know..., but doing this manually and in golang is a different kind of torture
-
-// AI
+// TODO: Make table structure more readable, if time allows
 
 // TableRow represents a row in the table, e.g., {"1": [...]}
 type TableRow map[string][]CellGroup
@@ -18,10 +10,13 @@ type CellGroup map[string]any
 
 // TableData represents the entire table structure
 type Table struct {
-	Last_chapter uint64           `bson:"last_chapter"`
-	Last_verse   Vrs_number_strct `bson:"last_verse"`
-	Table        []TableRow       `bson:"table"`
-	Additionals  []Additional     `bson:"additionals,omitempty"`
+	Chapter            uint64
+	Verse_min_range    uint64
+	Verse_max_range    uint64
+	Verse_min_notation string
+	Verse_max_notation string
+	Table              []TableRow
+	Additionals        []Additional
 }
 
 type Additional struct {
@@ -34,35 +29,6 @@ type Footnote_additional map[string][]Footnote
 
 // Use it carefully
 type Crossrefs_additional map[string][]Crossref
-
-// String returns a human-readable string representation of the table
-func (td Table) String() string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Chapter: %s, Verse: %s\n", td.Last_chapter, td.Last_verse))
-
-	for _, row := range td.Table {
-		for rowKey, cellGroups := range row {
-			sb.WriteString(fmt.Sprintf("  Row %s:\n", rowKey))
-			for _, cellGroup := range cellGroups {
-				for cellKey, cellValue := range cellGroup {
-					sb.WriteString(fmt.Sprintf("    %s: ", cellKey))
-					switch v := cellValue.(type) {
-					case string:
-						sb.WriteString(fmt.Sprintf("%s\n", v))
-					case []any:
-						sb.WriteString(fmt.Sprintf("%v\n", v))
-					case map[string]any:
-						b, _ := json.MarshalIndent(v, "", "  ")
-						sb.WriteString(fmt.Sprintf("%s\n", b))
-					default:
-						sb.WriteString(fmt.Sprintf("%v\n", v))
-					}
-				}
-			}
-		}
-	}
-	return sb.String()
-}
 
 // 			{
 //             "last_chapter": "7",
