@@ -138,7 +138,7 @@ func (f footnotes) Gather(ctx context.Context, coll *mongo.Collection, book_code
 		},
 		{
 			{Key: "$match", Value: bson.D{
-				{Key: "footnotes.references_chapter", Value: chapter},
+				{Key: "footnotes.chapter", Value: chapter},
 			}},
 		},
 		{
@@ -183,7 +183,7 @@ func (c crossrefs) Gather(ctx context.Context, coll *mongo.Collection, book_code
 		},
 		{
 			{Key: "$match", Value: bson.D{
-				{Key: "cross_references.belongs_to_chapter", Value: chapter},
+				{Key: "cross_references.chapter", Value: chapter},
 			}},
 		},
 		{
@@ -273,7 +273,7 @@ func (tb tables) Gather(ctx context.Context, coll *mongo.Collection, book_code s
 		},
 		{
 			{Key: "$match", Value: bson.D{
-				{Key: "tables.last_chapter", Value: chapter},
+				{Key: "tables.chapter", Value: chapter},
 			}},
 		},
 		{
@@ -314,19 +314,16 @@ func (s special_elements) Gather(ctx context.Context, coll *mongo.Collection, bo
 			{Key: "$limit", Value: 1},
 		},
 		{
-			{Key: "$unwind", Value: "$special_elems"},
-		},
-		{
-			{Key: "$unwind", Value: "$special_elems.specials"},
+			{Key: "$unwind", Value: "$special"},
 		},
 		{
 			{Key: "$match", Value: bson.D{
-				{Key: "special_elems.specials.chapter", Value: chapter},
+				{Key: "special.chapter", Value: chapter},
 			}},
 		},
 		{
 			{Key: "$replaceRoot", Value: bson.D{
-				{Key: "newRoot", Value: "$special_elems.specials"},
+				{Key: "newRoot", Value: "$special"},
 			}},
 		},
 	}

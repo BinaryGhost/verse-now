@@ -28,7 +28,7 @@ func main() {
 
 		fmt.Println(">>>>", len(todo.Verses))
 		for _, i := range todo.Verses {
-			fmt.Printf("%s - %s\n", i.Chapter, i.Verse_number)
+			fmt.Printf("%d - %d\n", i.Chapter, i.Verse_min_range)
 		}
 	})
 
