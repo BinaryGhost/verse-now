@@ -58,18 +58,13 @@ func (db *Bible_db) ComposeVerses(ctx context.Context, acc *ent.WholeVerse, tran
 				{
 					{Key: "$match", Value: bson.D{
 						{Key: "verses.chapter", Value: chapter_number},
-						// {Key: "verses.verse_min_range", Value: bson.D{
-						// 	{Key: "$gte", Value: lower_number},
-						// 	{Key: "$lte", Value: higher_number},
-						// }}, // TODO: Handle verses, like 1-2
 						{Key: "$and", Value: bson.A{
-							bson.E{Key: "verses.verse_min_range", Value: bson.E{Key: "$gte", Value: lower_number}},
-							bson.E{Key: "verses.verse_min_range", Value: bson.E{Key: "$lte", Value: higher_number}},
-						},
-						},
+							bson.D{{"verses.verse_min_range", bson.D{{"$gte", lower_number}}}},
+							bson.D{{"verses.verse_min_range", bson.D{{"$lte", higher_number}}}},
+						}},
+						// TODO: Handle verses, like 1-2
 					}},
 				},
-
 				// {
 				// 	{Key: "$match", Value: bson.D{
 				// 		{Key: "$and", Value: bson.A{
@@ -100,7 +95,6 @@ func (db *Bible_db) ComposeVerses(ctx context.Context, acc *ent.WholeVerse, tran
 			}
 
 			acc.Verses = append(acc.Verses, results...)
-
 		}(cur)
 
 		//
