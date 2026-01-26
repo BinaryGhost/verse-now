@@ -1,6 +1,7 @@
 package entities
 
 type Verse struct {
+	Role                   string // verse
 	Global_locator         string
 	Chapter                uint64
 	Alternate_verse_number string // It highlights, that the verse-number can also be different. However, it does not effect anything, and should not be used if empty

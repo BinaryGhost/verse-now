@@ -35,6 +35,7 @@ func convert_to_right_footnote(f Footnote_migrate) (Footnote, error) {
 	}
 
 	return Footnote{
+		Role:               "footnote",
 		References:         f.References,
 		Chapter:            chapt,
 		Verse_min_range:    i.min_range,
@@ -54,6 +55,7 @@ func convert_to_right_crossref(cr Crossref_migrate) (Crossref, error) {
 	}
 
 	return Crossref{
+		Role:               "crossref",
 		References:         cr.References,
 		Chapter:            chapt,
 		Verse_min_range:    i.min_range,
@@ -163,6 +165,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 		}
 
 		verse := Verse{
+			Role:                   "verse",
 			Global_locator:         v.Global_locator,
 			Chapter:                chapt,
 			Verse_min_range:        i.min_range,
@@ -175,7 +178,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 			Position:               v.Position,
 		}
 
-		tsst.Verses = append(tsst.Verses, verse)
+		tsst.Content = append(tsst.Content, verse)
 	}
 
 	for _, f := range ms.Footnotes {
@@ -184,7 +187,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 			return tsst, err
 		}
 
-		tsst.Footnotes = append(tsst.Footnotes, footnote)
+		tsst.Content = append(tsst.Content, footnote)
 	}
 	for _, cr := range ms.Crossrefs {
 		crossref, err := convert_to_right_crossref(cr)
@@ -192,7 +195,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 			return tsst, err
 		}
 
-		tsst.Cross_references = append(tsst.Cross_references, crossref)
+		tsst.Content = append(tsst.Content, crossref)
 	}
 
 	for _, s := range ms.Raw_Specials.Specials {
@@ -205,6 +208,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 		}
 
 		special := Special{
+			Role:               "special",
 			Kind:               s.Kind,
 			Content:            s.Content,
 			Chapter:            chapt,
@@ -214,7 +218,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 			Verse_max_notation: i.max_notation,
 		}
 
-		tsst.Special_Elems = append(tsst.Special_Elems, special)
+		tsst.Content = append(tsst.Content, special)
 	}
 
 	for _, t := range ms.Titles {
@@ -247,6 +251,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 		}
 
 		title := Title{
+			Role:               "title",
 			Kind:               t.Kind,
 			Content:            t.Content,
 			Verse_min_range:    i.min_range,
@@ -258,7 +263,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 			Crossrefs:          tmp_crossref_array,
 		}
 
-		tsst.Titles = append(tsst.Titles, title)
+		tsst.Content = append(tsst.Content, title)
 	}
 
 	for _, tb := range ms.Tables {
@@ -304,6 +309,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 		}
 
 		table := Table{
+			Role:               "table",
 			Chapter:            chapt,
 			Verse_min_range:    i.min_range,
 			Verse_max_range:    i.max_range,
@@ -313,7 +319,7 @@ func Migration_to_real_Structure(ms *Migration_Structure) (TranslationStructure,
 			Additionals:        []Additional{additionals_real},
 		}
 
-		tsst.Tables = append(tsst.Tables, table)
+		tsst.Content = append(tsst.Content, table)
 	}
 
 	return tsst, nil

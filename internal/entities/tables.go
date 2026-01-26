@@ -10,6 +10,7 @@ type CellGroup map[string]any
 
 // TableData represents the entire table structure
 type Table struct {
+	Role               string // table
 	Chapter            uint64
 	Verse_min_range    uint64
 	Verse_max_range    uint64

@@ -1,6 +1,7 @@
 package entities
 
 type Title struct {
+	Role               string // title
 	Kind               string
 	Content            string
 	Chapter            uint64

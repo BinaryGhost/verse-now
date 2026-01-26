@@ -1,6 +1,7 @@
 package entities
 
 type Footnote struct {
+	Role               string // footnote
 	References         string
 	Chapter            uint64
 	Verse_min_range    uint64
@@ -11,6 +12,7 @@ type Footnote struct {
 }
 
 type Crossref struct {
+	Role               string // crossref
 	References         string
 	Chapter            uint64
 	Verse_min_range    uint64

@@ -1,6 +1,7 @@
 package entities
 
 type Special struct {
+	Role               string // special
 	Kind               string
 	Content            string
 	Chapter            uint64
