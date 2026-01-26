@@ -21,7 +21,6 @@ func (db *Bible_db) ComposeVerses(ctx context.Context, acc *ent.WholeVerse, tran
 
 	filter := bson.D{
 		bson.E{Key: "general.about_book.book_code", Value: book_code},
-		bson.E{Key: "verses", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
 	}
 
 	verse_range_len := len(alf.MaxVerses)
@@ -42,6 +41,7 @@ func (db *Bible_db) ComposeVerses(ctx context.Context, acc *ent.WholeVerse, tran
 			lower_number := alf.MinVerses[index]
 			higher_number := alf.MaxVerses[index]
 
+			fmt.Println("chapter_number: ", chapter_number)
 			fmt.Println("lower_number: ", lower_number)
 			fmt.Println("higher_number: ", higher_number)
 
@@ -53,14 +53,15 @@ func (db *Bible_db) ComposeVerses(ctx context.Context, acc *ent.WholeVerse, tran
 					{Key: "$limit", Value: 1},
 				},
 				{
-					{Key: "$unwind", Value: "$verses"},
+					{Key: "$unwind", Value: "$content"},
 				},
 				{
 					{Key: "$match", Value: bson.D{
-						{Key: "verses.chapter", Value: chapter_number},
+						{Key: "content.role", Value: "verse"},
+						{Key: "content.chapter", Value: chapter_number},
 						{Key: "$and", Value: bson.A{
-							bson.D{{"verses.verse_min_range", bson.D{{"$gte", lower_number}}}},
-							bson.D{{"verses.verse_min_range", bson.D{{"$lte", higher_number}}}},
+							bson.D{{"content.verse_min_range", bson.D{{"$gte", lower_number}}}},
+							bson.D{{"content.verse_min_range", bson.D{{"$lte", higher_number}}}},
 						}},
 						// TODO: Handle verses, like 1-2
 					}},
@@ -78,7 +79,7 @@ func (db *Bible_db) ComposeVerses(ctx context.Context, acc *ent.WholeVerse, tran
 				// },
 				{
 					{Key: "$replaceRoot", Value: bson.D{
-						{Key: "newRoot", Value: "$verses"},
+						{Key: "newRoot", Value: "$content"},
 					}},
 				},
 			}

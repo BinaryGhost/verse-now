@@ -3,12 +3,13 @@ package entities
 // TODO: Add mutexes
 
 type Chapter struct {
-	Verses    []Verse
-	Footnotes []Footnote
-	Crossrefs []Crossref
-	Tables    []Table
-	Specials  []Special
-	Titles    []Title
+	Anything []any
+	// Verses    []Verse
+	// Footnotes []Footnote
+	// Crossrefs []Crossref
+	// Tables    []Table
+	// Specials  []Special
+	// Titles    []Title
 }
 
 type WholeVerse struct {

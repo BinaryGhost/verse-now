@@ -10,3 +10,5 @@ type TranslationStructure struct {
 	// Tables           []Table
 	// Cross_references []Crossref
 }
+
+var ExistingRoles = []string{"verse", "title", "footnote", "crossref", "table", "special"}
