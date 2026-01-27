@@ -13,8 +13,8 @@ type Chapter struct {
 }
 
 type WholeVerse struct {
-	Verses      []Verse
-	InsideTable bool
-	Footnotes   []Footnote
-	Crossrefs   []Crossref
+	Anything []any
+	// InsideTable bool
+	// Footnotes   []Footnote
+	// Crossrefs   []Crossref
 }

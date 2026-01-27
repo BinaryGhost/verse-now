@@ -41,9 +41,9 @@ func (db *Bible_db) ComposeVerses(ctx context.Context, acc *ent.WholeVerse, tran
 			lower_number := alf.MinVerses[index]
 			higher_number := alf.MaxVerses[index]
 
-			fmt.Println("chapter_number: ", chapter_number)
-			fmt.Println("lower_number: ", lower_number)
-			fmt.Println("higher_number: ", higher_number)
+			// fmt.Println("chapter_number: ", chapter_number)
+			// fmt.Println("lower_number: ", lower_number)
+			// fmt.Println("higher_number: ", higher_number)
 
 			pipeline := []bson.D{
 				{
@@ -57,7 +57,17 @@ func (db *Bible_db) ComposeVerses(ctx context.Context, acc *ent.WholeVerse, tran
 				},
 				{
 					{Key: "$match", Value: bson.D{
-						{Key: "content.role", Value: "verse"},
+						{Key: "$or", Value: bson.A{
+							bson.D{{"content.role", "verse"}},
+							bson.D{{"content.role", "footnote"}},
+							bson.D{{"content.role", "crossref"}},
+
+							// NOTE:
+							// A table can contain verses, that are not directly requested,
+							// but it does not make sense to exclude them, because you generally
+							// want the context of an entire table, rather it being cut off strictly
+							bson.D{{"content.role", "table"}},
+						}},
 						{Key: "content.chapter", Value: chapter_number},
 						{Key: "$and", Value: bson.A{
 							bson.D{{"content.verse_min_range", bson.D{{"$gte", lower_number}}}},
@@ -66,17 +76,6 @@ func (db *Bible_db) ComposeVerses(ctx context.Context, acc *ent.WholeVerse, tran
 						// TODO: Handle verses, like 1-2
 					}},
 				},
-				// {
-				// 	{Key: "$match", Value: bson.D{
-				// 		{Key: "$and", Value: bson.A{
-				// 			bson.D{{Key: "verses.chapter", Value: chapter_number}},
-				// 			bson.D{{Key: "verses.verse_min_range", Value: bson.D{
-				// 				{Key: "$gte", Value: lower_number},
-				// 				{Key: "$lte", Value: higher_number},
-				// 			}}},
-				// 		}},
-				// 	}},
-				// },
 				{
 					{Key: "$replaceRoot", Value: bson.D{
 						{Key: "newRoot", Value: "$content"},
@@ -90,12 +89,12 @@ func (db *Bible_db) ComposeVerses(ctx context.Context, acc *ent.WholeVerse, tran
 			}
 			defer cursor.Close(ctx)
 
-			var results []ent.Verse
+			var results []any
 			if err := cursor.All(ctx, &results); err != nil {
 				err_chan <- err
 			}
 
-			acc.Verses = append(acc.Verses, results...)
+			acc.Anything = append(acc.Anything, results...)
 		}(cur)
 
 		//

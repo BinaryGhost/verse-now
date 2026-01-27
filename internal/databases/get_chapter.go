@@ -12,8 +12,7 @@ import (
 
 // TODO: Keep verse-numbers like "1-2" in mind
 
-func (db *Bible_db) ComposeChapter(book_code string, chapter string, ctx context.Context, trans_abbr string) error {
-	var acc = ent.Chapter{}
+func (db *Bible_db) ComposeChapter(ctx context.Context, acc *ent.Chapter, trans_abbr string, book_code string, chapter uint64) error {
 
 	base_collection := db.Collection(trans_abbr)
 	if base_collection == nil {
@@ -21,7 +20,7 @@ func (db *Bible_db) ComposeChapter(book_code string, chapter string, ctx context
 		return errors.New(error_str)
 	}
 
-	if err := CollectAll(ctx, base_collection, book_code, chapter, &acc); err != nil {
+	if err := CollectAll(ctx, base_collection, book_code, chapter, acc); err != nil {
 		return err
 	}
 	// fmt.Println(len(acc.Verses))
@@ -34,7 +33,7 @@ func (db *Bible_db) ComposeChapter(book_code string, chapter string, ctx context
 	return nil
 }
 
-func CollectAll(ctx context.Context, coll *mongo.Collection, book_code string, chapter string, acc *ent.Chapter) error {
+func CollectAll(ctx context.Context, coll *mongo.Collection, book_code string, chapter uint64, acc *ent.Chapter) error {
 	var wg sync.WaitGroup
 	err_chan := make(chan error, 8)
 
@@ -62,7 +61,11 @@ func CollectAll(ctx context.Context, coll *mongo.Collection, book_code string, c
 	return nil
 }
 
-func gather(ctx context.Context, coll *mongo.Collection, book_code string, chapter string, role string, acc *ent.Chapter) error {
+//
+// NOTE: We need to set $limit to 1, since multiple (identical) documents can be fetched with this. I dont know why this happens
+//
+
+func gather(ctx context.Context, coll *mongo.Collection, book_code string, chapter uint64, role string, acc *ent.Chapter) error {
 	filter := bson.D{
 		bson.E{Key: "general.about_book.book_code", Value: book_code},
 	}
@@ -80,7 +83,7 @@ func gather(ctx context.Context, coll *mongo.Collection, book_code string, chapt
 		{
 			{Key: "$match", Value: bson.D{
 				{Key: "content.chapter", Value: chapter},
-				{Key: "role", Value: role},
+				{Key: "content.role", Value: role},
 			}},
 		},
 		{
@@ -96,61 +99,13 @@ func gather(ctx context.Context, coll *mongo.Collection, book_code string, chapt
 	}
 	defer cursor.Close(ctx)
 
-	var results []ent.Verse
+	var results []any
 	if err := cursor.All(ctx, &results); err != nil {
 		return err
 	}
-	acc.Anything = append(acc.Anything, results)
+	acc.Anything = append(acc.Anything, results...)
+	// fmt.Println(len(acc.Anything))
 
 	return nil
 
 }
-
-//
-// NOTE: We need to set $limit to 1, since multiple (identical) documents can be fetched with this. I dont know why this happens
-//
-
-// type verses struct{}
-//
-// func (v verses) Gather(ctx context.Context, coll *mongo.Collection, book_code string, chapter string, acc *ent.Chapter) error {
-// 	filter := bson.D{
-// 		bson.E{Key: "general.about_book.book_code", Value: book_code},
-// 		bson.E{Key: "verses", Value: bson.D{{Key: "$ne", Value: bson.A{}}}},
-// 	}
-//
-// 	pipeline := []bson.D{
-// 		{
-// 			{Key: "$match", Value: filter},
-// 		},
-// 		{
-// 			{Key: "$limit", Value: 1},
-// 		},
-// 		{
-// 			{Key: "$unwind", Value: "$verses"},
-// 		},
-// 		{
-// 			{Key: "$match", Value: bson.D{
-// 				{Key: "verses.chapter", Value: chapter},
-// 			}},
-// 		},
-// 		{
-// 			{Key: "$replaceRoot", Value: bson.D{
-// 				{Key: "newRoot", Value: "$verses"},
-// 			}},
-// 		},
-// 	}
-//
-// 	cursor, err := coll.Aggregate(ctx, pipeline)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer cursor.Close(ctx)
-//
-// 	var results []ent.Verse
-// 	if err := cursor.All(ctx, &results); err != nil {
-// 		return err
-// 	}
-// 	acc.Verses = results
-//
-// 	return nil
-// }
